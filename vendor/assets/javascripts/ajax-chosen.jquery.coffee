@@ -5,6 +5,8 @@ do ($ = jQuery) ->
       minTermLength: 3
       afterTypeDelay: 500
       jsonTermKey: "term"
+      keepTypingMsg: "Keep typing..."
+      lookingForMsg: "Looking for"
 
     # This will come in handy later.
     select = @
@@ -12,7 +14,7 @@ do ($ = jQuery) ->
     chosenXhr = null
     
     # Merge options with defaults
-    options = $.extend {}, defaultOptions, settings
+    options = $.extend {}, defaultOptions, $(select).data(), settings
 
     # Load chosen. To make things clear, I have taken the liberty
     # of using the .chzn-autoselect class to specify input elements
@@ -29,11 +31,12 @@ do ($ = jQuery) ->
           # into the input form that chosen has created
           
           # Retrieve the current value of the input form
+          untrimmed_val = $(@).attr('value')
           val = $.trim $(@).attr('value')
 
           # Depending on how much text the user has typed, let them know
           # if they need to keep typing or if we are looking for their data
-          msg = if val.length < options.minTermLength then "Keep typing..." else "Looking for '" + val + "'"
+          msg = if val.length < options.minTermLength then options.keepTypingMsg else options.lookingForMsg + " '#{val}'"
           select.next('.chzn-container').find('.no-results').text(msg)
           
           # If input text has not changed ... do nothing
@@ -79,26 +82,64 @@ do ($ = jQuery) ->
             selected_values = []
             select.find('option').each -> 
               if not $(@).is(":selected")
-                $(@).remove() 
+                $(@).remove()
               else
                 selected_values.push $(@).val() + "-" + $(@).text()
+            select.find('optgroup:empty').each ->
+              $(@).remove()
+
                 
             # Send the ajax results to the user callback so we can get an object of
             # value => text pairs to inject as <option> elements.
             items = callback data
             
+
+            nbItems = 0
+
             # Iterate through the given data and inject the <option> elements into
             # the DOM if it doesn't exist in the selector already
-            $.each items, (value, text) ->
-              if $.inArray(value + "-" + text, selected_values) == -1
-                $("<option />")
-                  .attr('value', value)
-                  .html(text)
+            $.each items, (i, element) ->
+              nbItems++
+
+              if element.group
+                group = select.find("optgroup[label='#{element.text}']")
+                group = $("<optgroup />") unless group.size()
+
+                group.attr('label', element.text)
                   .appendTo(select)
-                
-            # Tell chosen that the contents of the <select> input have been updated
-            # This makes chosen update its internal list of the input data.
-            select.trigger("liszt:updated")
+                $.each element.items, (i, element) ->
+                  if typeof element == "string"
+                    value = i;
+                    text = element;
+                  else
+                    value = element.value;
+                    text = element.text;
+                  if $.inArray(value + "-" + text, selected_values) == -1
+                    $("<option />")
+                      .attr('value', value)
+                      .html(text)
+                      .appendTo(group)
+              else
+                if typeof element == "string"
+                  value = i;
+                  text = element;
+                else
+                  value = element.value;
+                  text = element.text;
+                if $.inArray(value + "-" + text, selected_values) == -1
+                  $("<option />")
+                    .attr('value', value)
+                    .html(text)
+                    .appendTo(select)
+
+            if nbItems
+              # Tell chosen that the contents of the <select> input have been updated
+              # This makes chosen update its internal list of the input data.
+              select.trigger("liszt:updated")
+            else
+              # If there are no results, display the no_results text
+              select.data().chosen.no_results_clear()
+              select.data().chosen.no_results field.attr('value')
             
             # Finally, call the user supplied callback (if it exists)
             success(data) if success?
@@ -107,7 +148,7 @@ do ($ = jQuery) ->
             # call trigger above. Often, this can be very annoying (and can make some
             # searches impossible), so we add the value the user was typing back into
             # the input field.
-            field.attr('value', val)
+            field.attr('value', untrimmed_val)
 
             # Because non-ajax Chosen isn't constantly re-building results, when it
             # DOES rebuild results (during liszt:updated above, it clears the input 
@@ -119,7 +160,7 @@ do ($ = jQuery) ->
             # Chosen.search_field_scale() after resetting the value above.  This isn't
             # possible with the current state of Chosen.  The quick fix is to simply reset
             # the width of the field after we reset the value of the input text.
-            field.css('width','auto')
+            # field.css('width','auto')
                       
           # Execute the ajax call to search for autocomplete data with a timer
           @timer = setTimeout -> 

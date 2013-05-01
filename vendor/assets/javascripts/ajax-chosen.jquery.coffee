@@ -7,6 +7,8 @@ do ($ = jQuery) ->
       jsonTermKey: "term"
       keepTypingMsg: "Keep typing..."
       lookingForMsg: "Looking for"
+      ignoreDuplicates: true
+      duplicateNotification: " (already included)"
 
     # This will come in handy later.
     select = @
@@ -114,7 +116,10 @@ do ($ = jQuery) ->
                   else
                     value = element.value;
                     text = element.text;
-                  if $.inArray(value + "-" + text, selected_values) == -1
+
+                  isUnique = $.inArray(value + "-" + text, selected_values) == -1
+                  if options.ignoreDuplicates != true || isUnique
+                    if options.ignoreDuplicates == "notify" && !isUnique then text = text + options.duplicateNotification
                     $("<option />")
                       .attr('value', value)
                       .html(text)
@@ -126,7 +131,10 @@ do ($ = jQuery) ->
                 else
                   value = element.value;
                   text = element.text;
-                if $.inArray(value + "-" + text, selected_values) == -1
+
+                isUnique = $.inArray(value + "-" + text, selected_values) == -1
+                if options.ignoreDuplicates != true || isUnique
+                  if options.ignoreDuplicates == "notify" && !isUnique then text = text + options.duplicateNotification
                   $("<option />")
                     .attr('value', value)
                     .html(text)
